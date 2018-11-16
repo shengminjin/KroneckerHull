@@ -6,7 +6,7 @@
 
   -n, network name
 
-  -f, edge list file name.
+  -f, input edge list file name.
 
   -s, sampling proportion step (percentage)
 
