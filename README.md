@@ -14,7 +14,9 @@
 
  example: python kron_hull.py -n as20graph -f as20graph.txt -s 20 -t 5
 
- output: the directory <network name>/
+ output: 
+         
+         the directory <network name>/
 
          Kronecker hull <network name>/kronecker_hull.jpg
 
