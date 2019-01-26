@@ -93,6 +93,7 @@ if __name__ == '__main__':
     nx.write_edgelist(G.to_directed(), directory + 'edgelist'
                        , delimiter='\t', data=False)
     
+    # kronfit the original graph
     full_input_file = directory + 'edgelist'
     full_output_file = directory + 'output.dat'
     kronfit(full_input_file, full_output_file)
@@ -100,6 +101,7 @@ if __name__ == '__main__':
     output = open(directory + 'kron_points.txt', 'w')
     kronecker_points = []
     
+    # get sample graphs and Kronecker points of the samples
     for p in range(step, 100, step):
         os.mkdir(directory + str(p) + '/')
         for i in range(0, nos):
@@ -107,8 +109,8 @@ if __name__ == '__main__':
             input_file = directory + str(p) + '/' + str(i) + '.edgelist'
             output_file = directory + str(p) + '/' + str(i) + '_output.dat'
             kronfit(input_file, output_file)
-    
-    for p in range(step, 100, step):
+            
+        # extract points from the output file of kronfit
         for i in range(0, nos):
             output_file = directory + str(p) + '/' + str(i) + '_output.dat'
             while(1):
@@ -128,8 +130,31 @@ if __name__ == '__main__':
                 d = split[2].strip()
                 output.write(str(a) + ',' + str(b) + ',' + str(d) + ',' + str(p) + '\n')
                 kronecker_points.append([float(a), float(b), float(d)])
+            
+        
     
+    # for p in range(step, 100, step):
+    #     for i in range(0, nos):
+    #         output_file = directory + str(p) + '/' + str(i) + '_output.dat'
+    #         while(1):
+    #             if not os.path.isfile(output_file):
+    #                 print('Waiting for ' + output_file)
+    #                 print('sleep 1 minute')
+    #                 time.sleep(60)
+    #             else:
+    #                 break
+    #             
+    #         with open(output_file, 'r') as myfile:
+    #             s = myfile.read()
+    #             ret = re.findall(r'\[([^]]*)\]', s)
+    #             split = ret[0].split(',')
+    #             a = split[0]
+    #             b = split[1].split(';')[0].strip()
+    #             d = split[2].strip()
+    #             output.write(str(a) + ',' + str(b) + ',' + str(d) + ',' + str(p) + '\n')
+    #             kronecker_points.append([float(a), float(b), float(d)])
     
+    # extract Kronecker point of the original graph
     while(1):
         if not os.path.isfile(full_output_file):
             print('Waiting for ' + full_output_file)
@@ -137,6 +162,8 @@ if __name__ == '__main__':
             time.sleep(60)
         else:
             break
+            
+    # write all the Kronecker points to a file
     with open(full_output_file, 'r') as myfile:
         s = myfile.read()
         ret = re.findall(r'\[([^]]*)\]', s)
@@ -149,6 +176,7 @@ if __name__ == '__main__':
 
     output.close()
     
+    # create convex hull
     kronecker_points = np.asarray(kronecker_points, dtype=np.float32)
     create_kronecker_hull(directory, kronecker_points)
 
