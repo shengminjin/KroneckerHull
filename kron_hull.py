@@ -1,22 +1,38 @@
-# kronfit for subgraphs
+'''
+Reference implementation of Kronecker Hull. 
+Author: Shengmin Jin
+For more details, refer to the paper:
+Representing Networks with 3D Shapes
+Shengmin Jin and Reza Zafarani
+IEEE International Conference on Data Mining (ICDM), 2018
 
-def getopts(argv):
-    opts = {}  # Empty dictionary to store key-value pairs.
-    while argv:  # While there are arguments left to parse...
-        if argv[0][0] == '-':  # Found a "-name value" pair.
-            opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
-        argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
-    return opts
+Versions: 1.0    The Original Version
+          1.1    Code Optimization
+          1.2    Bug fix for python subprocess hang
+'''
 
+from sys import argv
+import random, os, shutil, time
+import thread
+import math
+import subprocess
+import networkx as nx
+import re
+from scipy.spatial import ConvexHull
+import numpy as np
+import matplotlib
+import argparse
+matplotlib.use('Agg')
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+
+# create subprocess for kronfit
 def kronfit(input_file, output_file):
-    p = subprocess.Popen(['kronfit', 
-                          '-i:' + input_file,
-                          '-n0:2', '-gi:100',
-                          '-o:' + output_file,], 
-                         stdout=subprocess.PIPE, 
-                         stderr=subprocess.PIPE)
-    
+    cmd = 'kronfit', '-i:' + input_file, '-n0:2', '-gi:100', '-o:' + output_file
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    return proc
 
+# sample a subgraph
 def sample(directory, p, i):
     random.shuffle(nodes)
     size = int(len(nodes) * float(p) / 100)
@@ -26,6 +42,7 @@ def sample(directory, p, i):
     nx.write_edgelist(sub_g, directory + str(p) + '/' 
                       + str(i) + '.edgelist', delimiter='\t', data=False)
     
+# create a Kronecker hull
 def create_kronecker_hull(directory, points):
     hull = ConvexHull(points)
     fig = plt.figure()
@@ -54,39 +71,50 @@ def create_kronecker_hull(directory, points):
     np.savetxt(directory + 'boundary.txt',vertices)
 
 
-# myargs['-n'] network name
-# myargs['-f'] edgelist file
-# myargs['-s'] sampling step size
-# myargs['-t'] number of samples for each sampling size
-
 if __name__ == '__main__':
-    from sys import argv
-    import random, os, shutil, time
-    import thread
-    import math
-    import subprocess
-    import networkx as nx
-    import re
-    from scipy.spatial import ConvexHull
-    import numpy as np
-    import matplotlib
-    matplotlib.use('Agg')
-    from mpl_toolkits.mplot3d import Axes3D
-    import matplotlib.pyplot as plt
     
-    myargs = getopts(argv)
-    print myargs
+    parser = argparse.ArgumentParser(
+        description='Generating a 3D Network Shapes with a Kronecker Hull')
+
+    parser.add_argument('-n', required=False,
+                        default='as20graph',
+                        help='Network name')
+
+    parser.add_argument('-f', required=False,
+                        default='as20graph.txt',
+                        help='Input edge list file name.')
+
+    parser.add_argument('-s', required=False,
+                        default=20,
+                        help='Sampling proportion step (percentage)')
+
+    parser.add_argument('-t', required=False,
+                        default=5,
+                        help='Number of samples for each sampling proporation"')
     
-    network_name = myargs['-n']
-    edgelist = myargs['-f']
-    step = int(myargs['-s'])
-    nos = int(myargs['-t'])
+#    network_name = myargs['-n']
+#    edgelist = myargs['-f']
+#    step = int(myargs['-s'])
+#    nos = int(myargs['-t'])
+
+    args = parser.parse_args()
+
+    # print("Command: {}".format(args.command))
+    print("Network name: {}".format(args.n))
+    print("Input edge file: {}".format(args.f))
+    print("Sampling proportion step: {}".format( args.s))
+    print("Number of samples for each sampling proportion: {}\n\n".format(args.t))
+    
+    network_name = args.n
+    edgelist = args.f
+    step = int(args.s)
+    nos = int(args.t)
     
     directory = network_name + '/'
     if os.path.isdir(directory):
         shutil.rmtree(directory)
     os.mkdir(directory)
-    
+
     G = nx.read_edgelist(edgelist, delimiter='\t')
     nodes = list(G.nodes())
     
@@ -96,31 +124,26 @@ if __name__ == '__main__':
     # kronfit the original graph
     full_input_file = directory + 'edgelist'
     full_output_file = directory + 'output.dat'
-    kronfit(full_input_file, full_output_file)
+    process_whole = kronfit(full_input_file, full_output_file)
     
     output = open(directory + 'kron_points.txt', 'w')
     kronecker_points = []
     
     # get sample graphs and Kronecker points of the samples
     for p in range(step, 100, step):
+        print('running ' + str(p) + '% subgraphs')
+        processes = []
         os.mkdir(directory + str(p) + '/')
         for i in range(0, nos):
             sample(directory, p, i)
             input_file = directory + str(p) + '/' + str(i) + '.edgelist'
             output_file = directory + str(p) + '/' + str(i) + '_output.dat'
-            kronfit(input_file, output_file)
+            processes.append(kronfit(input_file, output_file))
             
+        exit_codes = [proc.communicate() for proc in processes]
+        
         # extract points from the output file of kronfit
         for i in range(0, nos):
-            output_file = directory + str(p) + '/' + str(i) + '_output.dat'
-            while(1):
-                if not os.path.isfile(output_file):
-                    print('Waiting for ' + output_file)
-                    print('sleep 1 minute')
-                    time.sleep(60)
-                else:
-                    break
-                
             with open(output_file, 'r') as myfile:
                 s = myfile.read()
                 ret = re.findall(r'\[([^]]*)\]', s)
@@ -131,37 +154,7 @@ if __name__ == '__main__':
                 output.write(str(a) + ',' + str(b) + ',' + str(d) + ',' + str(p) + '\n')
                 kronecker_points.append([float(a), float(b), float(d)])
             
-        
-    
-    # for p in range(step, 100, step):
-    #     for i in range(0, nos):
-    #         output_file = directory + str(p) + '/' + str(i) + '_output.dat'
-    #         while(1):
-    #             if not os.path.isfile(output_file):
-    #                 print('Waiting for ' + output_file)
-    #                 print('sleep 1 minute')
-    #                 time.sleep(60)
-    #             else:
-    #                 break
-    #             
-    #         with open(output_file, 'r') as myfile:
-    #             s = myfile.read()
-    #             ret = re.findall(r'\[([^]]*)\]', s)
-    #             split = ret[0].split(',')
-    #             a = split[0]
-    #             b = split[1].split(';')[0].strip()
-    #             d = split[2].strip()
-    #             output.write(str(a) + ',' + str(b) + ',' + str(d) + ',' + str(p) + '\n')
-    #             kronecker_points.append([float(a), float(b), float(d)])
-    
-    # extract Kronecker point of the original graph
-    while(1):
-        if not os.path.isfile(full_output_file):
-            print('Waiting for ' + full_output_file)
-            print('sleep 1 minute')
-            time.sleep(60)
-        else:
-            break
+    process_whole.communicate()
             
     # write all the Kronecker points to a file
     with open(full_output_file, 'r') as myfile:
