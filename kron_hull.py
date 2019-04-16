@@ -9,6 +9,7 @@ IEEE International Conference on Data Mining (ICDM), 2018
 Versions: 1.0    The Original Version
           1.1    Code Optimization
           1.2    Bug fix for python subprocess hang
+          1.3    Bug fix for wrong output
 '''
 
 from sys import argv
@@ -144,6 +145,7 @@ if __name__ == '__main__':
         
         # extract points from the output file of kronfit
         for i in range(0, nos):
+            output_file = directory + str(p) + '/' + str(i) + '_output.dat'
             with open(output_file, 'r') as myfile:
                 s = myfile.read()
                 ret = re.findall(r'\[([^]]*)\]', s)
