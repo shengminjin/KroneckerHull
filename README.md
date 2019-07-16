@@ -34,3 +34,22 @@
 
  kronfit: please refer to https://github.com/shengminjin/snap/tree/master/examples/kronfit
 
+# Citation
+
+       To cite this work please use:
+
+       @inproceedings{jin2018representing,
+       
+         title={Representing Networks with 3D Shapes},
+         
+         author={Jin, Shengmin and Zafarani, Reza},
+         
+         booktitle={2018 IEEE International Conference on Data Mining (ICDM)},
+         
+         pages={177--186},
+         
+         year={2018},
+         
+         organization={IEEE}
+         
+       }
