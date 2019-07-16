@@ -14,7 +14,6 @@ Versions: 1.0    The Original Version
 
 from sys import argv
 import random, os, shutil, time
-import thread
 import math
 import subprocess
 import networkx as nx
