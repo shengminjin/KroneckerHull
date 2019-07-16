@@ -10,6 +10,7 @@ Versions: 1.0    The Original Version
           1.1    Code Optimization
           1.2    Bug fix for python subprocess hang
           1.3    Bug fix for wrong output
+          1.4    Improve parallel running
 '''
 
 from sys import argv
@@ -25,12 +26,16 @@ import argparse
 matplotlib.use('Agg')
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+from joblib import Parallel, delayed
 
 # create subprocess for kronfit
-def kronfit(input_file, output_file):
-    cmd = 'kronfit', '-i:' + input_file, '-n0:2', '-gi:100', '-o:' + output_file
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    return proc
+def kronfit(kronfit_job):
+    input_file_path = kronfit_job[0]
+    output_file_path = kronfit_job[1]
+    if not os.path.exists(output_file_path):
+        cmd = 'kronfit', '-i:' + input_file_path, '-n0:2', '-gi:100', '-o:' + output_file_path
+        subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
 
 # sample a subgraph
 def sample(directory, p, i):
@@ -120,28 +125,39 @@ if __name__ == '__main__':
     
     nx.write_edgelist(G.to_directed(), directory + 'edgelist'
                        , delimiter='\t', data=False)
-    
+
+    kronfit_jobs = []
+
     # kronfit the original graph
     full_input_file = directory + 'edgelist'
     full_output_file = directory + 'output.dat'
-    process_whole = kronfit(full_input_file, full_output_file)
+    kronfit_jobs.append((full_input_file, full_output_file))
     
     output = open(directory + 'kron_points.txt', 'w')
-    kronecker_points = []
+    output.write('a,b,d,sampling_proportion\n')
     
     # get sample graphs and Kronecker points of the samples
     for p in range(step, 100, step):
-        print('running ' + str(p) + '% subgraphs')
+        print('Sampling ' + str(p) + '% subgraphs')
         processes = []
         os.mkdir(directory + str(p) + '/')
         for i in range(0, nos):
             sample(directory, p, i)
             input_file = directory + str(p) + '/' + str(i) + '.edgelist'
             output_file = directory + str(p) + '/' + str(i) + '_output.dat'
-            processes.append(kronfit(input_file, output_file))
-            
-        exit_codes = [proc.communicate() for proc in processes]
-        
+            kronfit_jobs.append((input_file, output_file))
+
+
+    print("Running Kronfit for each graph")
+
+    Parallel(n_jobs=int((len(os.sched_getaffinity(0))/2)))(
+        delayed(kronfit)(kronfit_job)
+        for kronfit_job in tqdm(kronfit_jobs))
+
+    print("Kronfit Finished")
+
+    kronecker_points = []
+    for p in range(step, 100, step):
         # extract points from the output file of kronfit
         for i in range(0, nos):
             output_file = directory + str(p) + '/' + str(i) + '_output.dat'
@@ -154,8 +170,6 @@ if __name__ == '__main__':
                 d = split[2].strip()
                 output.write(str(a) + ',' + str(b) + ',' + str(d) + ',' + str(p) + '\n')
                 kronecker_points.append([float(a), float(b), float(d)])
-            
-    process_whole.communicate()
             
     # write all the Kronecker points to a file
     with open(full_output_file, 'r') as myfile:
