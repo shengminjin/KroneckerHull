@@ -30,7 +30,7 @@
 
  linux
 
- python 2.7, networkx, numpy, scipy
+ python 2.7, networkx, numpy, scipy, matplotlib, tqdm, joblib
 
  kronfit: please refer to https://github.com/shengminjin/snap/tree/master/examples/kronfit
 
